@@ -62,9 +62,10 @@ SSIM: 0.9499
 RMSE: 2.1946
 SAM: 11.51°
 Relative Error: 0.0847
+```
 
 ## Demo Results
 
 The demo generates a comprehensive visualization:
 
-![PALM Demo Results](palm_demo_rank20.png)
+![PALM Demo Results](https://github.com/xnnjw/TensorDeconv_release/blob/master/palm_demo_rank20.png)
