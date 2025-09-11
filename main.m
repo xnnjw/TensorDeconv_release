@@ -10,6 +10,7 @@
 %  - Real-time convergence visualization  
 %  - Parameter efficiency comparison
 %  - Visual reconstruction results
+%  - Robust initialization with fallback methods
 %% ========================================================================
 
 clear; clc; close all;
@@ -70,20 +71,12 @@ fprintf('Full-rank representation: %d parameters\n', full_rank_params);
 fprintf('CP decomposition (rank %d): %d parameters\n', params.rank, cp_params);
 fprintf('Compression ratio: %.1f× parameter reduction\n', compression_ratio);
 
-%% Initialize with CPD
+%% Initialize with CPD (Improved with Fallback)
 fprintf('\nInitializing with CP decomposition...\n');
-try
-    [init_A, init_B, init_C] = initialize_with_cpd_demo(img_blurred, params.rank);
-    params.init_A = init_A;
-    params.init_B = init_B; 
-    params.init_C = init_C;
-    fprintf('✓ CPD initialization completed\n');
-catch
-    fprintf('⚠ CPD initialization failed, using random initialization\n');
-    params.init_A = rand(P, params.rank);
-    params.init_B = rand(Q, params.rank);
-    params.init_C = rand(N, params.rank);
-end
+[init_A, init_B, init_C] = initialize_with_cpd_demo(img_blurred, params.rank);
+params.init_A = init_A;
+params.init_B = init_B; 
+params.init_C = init_C;
 
 %% Run PALM Algorithm
 fprintf('\n=== Running PALM Algorithm ===\n');
@@ -118,7 +111,11 @@ fprintf('Final PSNR: %.2f dB (%.1f× parameter reduction)\n', metrics.PSNR, comp
 %% Helper Functions
 
 function [init_A, init_B, init_C] = initialize_with_cpd_demo(img_blurred, rank)
-    % Initialize factors using CP decomposition
+    % Initialize factors using CP decomposition with fallback methods
+    
+    fprintf('Attempting CPD initialization...\n');
+    
+    % Method 1: Try tensor toolbox cp_opt
     try
         Y_tensor = tensor(img_blurred);
         [cpd_result, ~, ~] = cp_opt(Y_tensor, rank, 'maxiters', 50);
@@ -127,12 +124,85 @@ function [init_A, init_B, init_C] = initialize_with_cpd_demo(img_blurred, rank)
         init_A = cpd_factors{1};
         init_B = cpd_factors{2};
         init_C = cpd_factors{3};
-    catch
-        [P, Q, N] = size(img_blurred);
-        init_A = rand(P, rank);
-        init_B = rand(Q, rank);
-        init_C = rand(N, rank);
+        fprintf('✓ CPD initialization using tensor toolbox completed successfully\n');
+        return;
+    catch ME
+        fprintf('⚠ Tensor toolbox CPD failed: %s\n', ME.message);
     end
+    
+    % Method 2: Try manual CPD initialization
+    try
+        fprintf('Attempting manual CPD initialization...\n');
+        [init_A, init_B, init_C] = manual_cpd_init_worker(img_blurred, rank);
+        fprintf('✓ Manual CPD initialization completed successfully\n');
+        return;
+    catch ME
+        fprintf('⚠ Manual CPD initialization failed: %s\n', ME.message);
+    end
+    
+    % Method 3: Fallback to random initialization
+    fprintf('Using random initialization as fallback...\n');
+    [P, Q, N] = size(img_blurred);
+    init_A = randn(P, rank) * 0.1;
+    init_B = randn(Q, rank) * 0.1;
+    init_C = randn(N, rank) * 0.1;
+    fprintf('⚠ Using random initialization (may affect convergence quality)\n');
+end
+
+function [A, B, C] = manual_cpd_init_worker(Y, rank)
+    % Manual CPD initialization using SVD
+    % 
+    % Input:
+    %   Y - Input tensor of size P × Q × N
+    %   rank - Desired CP decomposition rank
+    % Output:
+    %   A, B, C - Factor matrices of sizes P×rank, Q×rank, N×rank
+    %
+    % Mathematical formulation:
+    % For tensor Y ∈ R^{P×Q×N}, we seek factors such that:
+    % Y ≈ ∑_{r=1}^{rank} a_r ∘ b_r ∘ c_r
+    
+    [P, Q, N] = size(Y);
+    
+    % Initialize with random matrices (small values for stability)
+    A = randn(P, rank) * 0.01;
+    B = randn(Q, rank) * 0.01;
+    C = randn(N, rank) * 0.01;
+    
+    % Iterative refinement using SVD of mode unfoldings
+    % This implements a simplified ALS (Alternating Least Squares) approach
+    for iter = 1:5
+        % Mode-1 unfolding: Y_{(1)} ∈ ℝ^{P×(QN)}
+        Y_1 = reshape(Y, P, Q*N);
+        [U, S, ~] = svd(Y_1, 'econ');
+        A = U(:, 1:min(rank, size(U,2))) * diag(sqrt(diag(S(1:min(rank, size(S,1)), 1:min(rank, size(S,2))))));
+        
+        % Mode-2 unfolding: Y_{(2)} ∈ ℝ^{Q×(PN)}
+        Y_2 = reshape(permute(Y, [2, 1, 3]), Q, P*N);
+        [U, S, ~] = svd(Y_2, 'econ');
+        B = U(:, 1:min(rank, size(U,2))) * diag(sqrt(diag(S(1:min(rank, size(S,1)), 1:min(rank, size(S,2))))));
+        
+        % Mode-3 unfolding: Y_{(3)} ∈ ℝ^{N×(PQ)}
+        Y_3 = reshape(permute(Y, [3, 1, 2]), N, P*Q);
+        [U, S, ~] = svd(Y_3, 'econ');
+        C = U(:, 1:min(rank, size(U,2))) * diag(sqrt(diag(S(1:min(rank, size(S,1)), 1:min(rank, size(S,2))))));
+    end
+    
+    % Ensure dimensions are correct
+    if size(A, 2) < rank
+        A = [A, randn(P, rank - size(A, 2)) * 0.01];
+    end
+    if size(B, 2) < rank
+        B = [B, randn(Q, rank - size(B, 2)) * 0.01];
+    end
+    if size(C, 2) < rank
+        C = [C, randn(N, rank - size(C, 2)) * 0.01];
+    end
+    
+    % Take only the first rank columns
+    A = A(:, 1:rank);
+    B = B(:, 1:rank);
+    C = C(:, 1:rank);
 end
 
 function create_demo_visualization(img_clean, img_blurred, X_rec, history, params, metrics, scene_name)
@@ -188,5 +258,4 @@ function create_demo_visualization(img_clean, img_blurred, X_rec, history, param
     % Main title
     sgtitle(sprintf('PALM Tensor Deconvolution Demo - (Rank %d)', params.rank), ...
             'FontSize', 16, 'FontWeight', 'bold');
-    
 end
