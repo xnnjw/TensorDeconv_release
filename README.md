@@ -45,23 +45,18 @@ Setting up PALM parameters...
 ✓ TV regularization: λ_A=0.06, λ_B=0.00
 
 === Parameter Efficiency Analysis ===
-Full-rank representation: 8257536 parameters
+Full-rank representation: 8126464 parameters
 CP decomposition (rank 20): 21100 parameters
-Compression ratio: 391.4× parameter reduction
-
-Initializing with CP decomposition...
-✓ CPD initialization completed
-
-=== Running PALM Algorithm ===
-✓ PALM algorithm completed in 302.94 seconds
+Compression ratio: 385.1× parameter reduction
 
 Reconstructing tensor and evaluating results...
 === Reconstruction Quality ===
-PSNR: 41.41 dB
-SSIM: 0.9499
-RMSE: 2.1946
-SAM: 11.51°
-Relative Error: 0.0847
+PSNR: 42.30 dB
+SSIM: 0.9586
+RMSE: 1.9722
+SAM: 10.40°
+Relative Error: 0.0758
+
 ```
 
 ## Demo Results
