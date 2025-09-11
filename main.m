@@ -58,7 +58,7 @@ params.verbose = true;      % Show progress
 
 fprintf('✓ Rank: %d\n', params.rank);
 fprintf('✓ Regularization: λ₁=%.1e, λ₂=%.1e, λ₃=%.1e\n', params.lambda1, params.lambda2, params.lambda3);
-fprintf('✓ TV regularization: λ_A=%.2f, λ_B=%.2f\n', params.lambda_A, params.lambda_B);
+fprintf('✓ TV regularization: λ_A=%.1e, λ_B=%.1e\n', params.lambda_A, params.lambda_B);
 
 %% Parameter Efficiency Analysis
 fprintf('\n=== Parameter Efficiency Analysis ===\n');
