@@ -63,4 +63,4 @@ Relative Error: 0.0758
 
 The demo generates a comprehensive visualization:
 
-![PALM Demo Results](https://github.com/xnnjw/TensorDeconv_release/blob/master/palm_demo_rank20.png)
+![PALM Demo Results](https://github.com/xnnjw/TensorDeconv_release/blob/master/demo_fig.png)
